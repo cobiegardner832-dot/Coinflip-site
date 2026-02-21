@@ -8,7 +8,7 @@
     body {
       margin: 0;
       font-family: Arial, sans-serif;
-      background: radial-gradient(circle at top, #1a1a2e, #0f0f0f);
+      background: radial-gradient(circle at top, #141e30, #000000);
       color: white;
       text-align: center;
     }
@@ -23,8 +23,39 @@
       border-radius: 20px;
       width: 420px;
       margin: auto;
-      box-shadow: 0 0 40px rgba(100,0,255,0.4);
+      box-shadow: 0 0 50px rgba(0,255,255,0.3);
       backdrop-filter: blur(10px);
+    }
+
+    h1 {
+      margin-bottom: 10px;
+    }
+
+    .wallet {
+      font-size: 14px;
+      margin-bottom: 15px;
+      color: #00ffd5;
+    }
+
+    button {
+      background: linear-gradient(45deg, #00c6ff, #0072ff);
+      border: none;
+      padding: 12px 20px;
+      margin: 8px;
+      border-radius: 12px;
+      font-size: 16px;
+      color: white;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    button:hover {
+      transform: scale(1.05);
+    }
+
+    .choice-buttons button.active {
+      background: #00ffae;
+      color: black;
     }
 
     input {
@@ -35,22 +66,6 @@
       text-align: center;
       font-size: 16px;
       margin: 10px 0;
-    }
-
-    button {
-      background: linear-gradient(45deg, #6c5ce7, #00cec9);
-      border: none;
-      padding: 12px 20px;
-      margin: 10px;
-      border-radius: 12px;
-      font-size: 16px;
-      color: white;
-      cursor: pointer;
-      transition: 0.2s ease;
-    }
-
-    button:hover {
-      transform: scale(1.05);
     }
 
     .coin-container {
@@ -65,7 +80,7 @@
       height: 100%;
       position: relative;
       transform-style: preserve-3d;
-      transition: transform 1.5s ease-in-out;
+      transition: transform 1.8s ease-in-out;
     }
 
     .face {
@@ -97,15 +112,9 @@
       font-weight: bold;
     }
 
-    .wallet {
-      font-size: 14px;
-      margin-bottom: 10px;
-      color: #00ffcc;
-    }
-
     .warning {
       font-size: 12px;
-      color: #ff7675;
+      color: #ff6b6b;
     }
   </style>
 </head>
@@ -115,8 +124,8 @@
 <div class="container">
   <div class="card">
     <h1>🪙 Solana Coin Flip</h1>
-    <div class="wallet" id="walletDisplay">Not connected</div>
 
+    <div class="wallet" id="walletDisplay">Not connected</div>
     <button onclick="connectWallet()">Connect Phantom</button>
 
     <div class="coin-container">
@@ -126,8 +135,13 @@
       </div>
     </div>
 
+    <div class="choice-buttons">
+      <button onclick="selectChoice('heads')" id="headsBtn">Heads</button>
+      <button onclick="selectChoice('tails')" id="tailsBtn">Tails</button>
+    </div>
+
     <div>
-      <label>Enter Bet (Max 8 SOL)</label><br>
+      <label>Bet Amount (Max 8 SOL)</label><br>
       <input type="number" id="betAmount" min="0.01" max="8" step="0.01" value="0.1">
       <div class="warning" id="warning"></div>
     </div>
@@ -141,10 +155,18 @@
 <script>
   const connection = new solanaWeb3.Connection("https://api.devnet.solana.com");
   const TREASURY = new solanaWeb3.PublicKey("23BGxPV6Q4SXBd51xs5pvWAZ2k3MPGxyPJjHinKc3f5S");
-  const WIN_PERCENTAGE = 0.45;
+  const WIN_PERCENTAGE = 0.44;
 
   let wallet = null;
   let flipping = false;
+  let playerChoice = "heads";
+
+  function selectChoice(choice) {
+    playerChoice = choice;
+    document.getElementById("headsBtn").classList.remove("active");
+    document.getElementById("tailsBtn").classList.remove("active");
+    document.getElementById(choice + "Btn").classList.add("active");
+  }
 
   async function connectWallet() {
     if (!window.solana) {
@@ -193,11 +215,13 @@
       const signed = await window.solana.signTransaction(transaction);
       await connection.sendRawTransaction(signed.serialize());
 
-      const win = Math.random() < WIN_PERCENTAGE;
+      const actualResult = Math.random() < WIN_PERCENTAGE ? "heads" : "tails";
+      const win = playerChoice === actualResult;
 
       const coin = document.getElementById("coin");
-      const spins = 5;
-      const finalRotation = win ? 180 : 0;
+      const spins = 6;
+      const finalRotation = actualResult === "tails" ? 180 : 0;
+
       coin.style.transform =
         `rotateY(${spins * 360 + finalRotation}deg)`;
 
@@ -208,15 +232,16 @@
             : `😢 You lost ${bet} SOL`;
 
         flipping = false;
-      }, 1500);
+      }, 1800);
 
     } catch (error) {
       console.error(error);
-      document.getElementById("result").innerText =
-        "Transaction failed.";
+      document.getElementById("result").innerText = "Transaction failed.";
       flipping = false;
     }
   }
+
+  selectChoice("heads");
 </script>
 
 </body>
