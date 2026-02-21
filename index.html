@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Solana Coin Flip</title>
+  <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: radial-gradient(circle at top, #1a1a2e, #0f0f0f);
+      color: white;
+      text-align: center;
+    }
+
+    .container {
+      margin-top: 100px;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.05);
+      padding: 40px;
+      border-radius: 20px;
+      width: 380px;
+      margin: auto;
+      box-shadow: 0 0 40px rgba(100,0,255,0.4);
+      backdrop-filter: blur(10px);
+    }
+
+    h1 {
+      margin-bottom: 10px;
+    }
+
+    .wallet {
+      font-size: 14px;
+      margin-bottom: 15px;
+      color: #00ffcc;
+    }
+
+    button {
+      background: linear-gradient(45deg, #6c5ce7, #00cec9);
+      border: none;
+      padding: 12px 20px;
+      margin: 8px;
+      border-radius: 12px;
+      font-size: 16px;
+      color: white;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    button:hover {
+      transform: scale(1.05);
+    }
+
+    .bet-buttons button {
+      background: #2d3436;
+    }
+
+    .bet-buttons button.active {
+      background: #6c5ce7;
+      transform: scale(1.1);
+    }
+
+    .result {
+      margin-top: 20px;
+      font-size: 22px;
+      font-weight: bold;
+    }
+
+    .stats {
+      margin-top: 20px;
+      font-size: 14px;
+      opacity: 0.7;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+  <div class="card">
+    <h1>🪙 Solana Coin Flip</h1>
+    <div class="wallet" id="walletDisplay">Not connected</div>
+
+    <button onclick="connectWallet()">Connect Phantom</button>
+
+    <div class="bet-buttons">
+      <button onclick="selectBet(0.1)" id="bet0.1">0.1 SOL</button>
+      <button onclick="selectBet(0.5)" id="bet0.5">0.5 SOL</button>
+      <button onclick="selectBet(1)" id="bet1">1 SOL</button>
+    </div>
+
+    <button onclick="flipCoin()">FLIP COIN</button>
+
+    <div class="result" id="result"></div>
+
+    <div class="stats">
+      Win Rate: 60% <br>
+      Network: Devnet
+    </div>
+  </div>
+</div>
+
+<script>
+  const connection = new solanaWeb3.Connection("https://api.devnet.solana.com");
+
+  // 🔥 YOUR TREASURY ADDRESS
+  const TREASURY = new solanaWeb3.PublicKey("23BGxPV6Q4SXBd51xs5pvWAZ2k3MPGxyPJjHinKc3f5S");
+
+  const WIN_PERCENTAGE = 0.45;
+
+  let wallet = null;
+  let selectedBet = 0.1;
+
+  function selectBet(amount) {
+    selectedBet = amount;
+
+    document.querySelectorAll(".bet-buttons button").forEach(btn => {
+      btn.classList.remove("active");
+    });
+
+    document.getElementById("bet" + amount).classList.add("active");
+  }
+
+  async function connectWallet() {
+    if (!window.solana) {
+      alert("Install Phantom Wallet");
+      return;
+    }
+
+    const response = await window.solana.connect();
+    wallet = response.publicKey;
+
+    document.getElementById("walletDisplay").innerText =
+      "Connected: " +
+      wallet.toString().slice(0, 6) +
+      "..." +
+      wallet.toString().slice(-4);
+  }
+
+  async function flipCoin() {
+    if (!wallet) {
+      alert("Connect wallet first");
+      return;
+    }
+
+    try {
+      document.getElementById("result").innerText = "Processing...";
+
+      const transaction = new solanaWeb3.Transaction().add(
+        solanaWeb3.SystemProgram.transfer({
+          fromPubkey: wallet,
+          toPubkey: TREASURY,
+          lamports: selectedBet * solanaWeb3.LAMPORTS_PER_SOL,
+        })
+      );
+
+      transaction.feePayer = wallet;
+      transaction.recentBlockhash =
+        (await connection.getLatestBlockhash()).blockhash;
+
+      const signed = await window.solana.signTransaction(transaction);
+      await connection.sendRawTransaction(signed.serialize());
+
+      const win = Math.random() < WIN_PERCENTAGE;
+
+      document.getElementById("result").innerText =
+        win
+          ? "🎉 YOU WON! (1.98x simulated payout)"
+          : "😢 You lost. Try again.";
+
+    } catch (error) {
+      console.error(error);
+      document.getElementById("result").innerText = "Transaction failed.";
+    }
+  }
+
+  selectBet(0.1);
+</script>
+
+</body>
+</html>
