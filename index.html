@@ -14,34 +14,34 @@
     }
 
     .container {
-      margin-top: 100px;
+      margin-top: 60px;
     }
 
     .card {
       background: rgba(255,255,255,0.05);
       padding: 40px;
       border-radius: 20px;
-      width: 380px;
+      width: 420px;
       margin: auto;
       box-shadow: 0 0 40px rgba(100,0,255,0.4);
       backdrop-filter: blur(10px);
     }
 
-    h1 {
-      margin-bottom: 10px;
-    }
-
-    .wallet {
-      font-size: 14px;
-      margin-bottom: 15px;
-      color: #00ffcc;
+    input {
+      width: 120px;
+      padding: 10px;
+      border-radius: 10px;
+      border: none;
+      text-align: center;
+      font-size: 16px;
+      margin: 10px 0;
     }
 
     button {
       background: linear-gradient(45deg, #6c5ce7, #00cec9);
       border: none;
       padding: 12px 20px;
-      margin: 8px;
+      margin: 10px;
       border-radius: 12px;
       font-size: 16px;
       color: white;
@@ -53,13 +53,42 @@
       transform: scale(1.05);
     }
 
-    .bet-buttons button {
-      background: #2d3436;
+    .coin-container {
+      perspective: 1000px;
+      margin: 30px auto;
+      width: 120px;
+      height: 120px;
     }
 
-    .bet-buttons button.active {
-      background: #6c5ce7;
-      transform: scale(1.1);
+    .coin {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 1.5s ease-in-out;
+    }
+
+    .face {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: bold;
+      backface-visibility: hidden;
+      box-shadow: inset 0 0 15px rgba(0,0,0,0.4);
+    }
+
+    .heads {
+      background: gold;
+    }
+
+    .tails {
+      background: silver;
+      transform: rotateY(180deg);
     }
 
     .result {
@@ -68,10 +97,15 @@
       font-weight: bold;
     }
 
-    .stats {
-      margin-top: 20px;
+    .wallet {
       font-size: 14px;
-      opacity: 0.7;
+      margin-bottom: 10px;
+      color: #00ffcc;
+    }
+
+    .warning {
+      font-size: 12px;
+      color: #ff7675;
     }
   </style>
 </head>
@@ -85,43 +119,32 @@
 
     <button onclick="connectWallet()">Connect Phantom</button>
 
-    <div class="bet-buttons">
-      <button onclick="selectBet(0.1)" id="bet0.1">0.1 SOL</button>
-      <button onclick="selectBet(0.5)" id="bet0.5">0.5 SOL</button>
-      <button onclick="selectBet(1)" id="bet1">1 SOL</button>
+    <div class="coin-container">
+      <div class="coin" id="coin">
+        <div class="face heads">H</div>
+        <div class="face tails">T</div>
+      </div>
+    </div>
+
+    <div>
+      <label>Enter Bet (Max 8 SOL)</label><br>
+      <input type="number" id="betAmount" min="0.01" max="8" step="0.01" value="0.1">
+      <div class="warning" id="warning"></div>
     </div>
 
     <button onclick="flipCoin()">FLIP COIN</button>
 
     <div class="result" id="result"></div>
-
-    <div class="stats">
-      Win Rate: 60% <br>
-      Network: Devnet
-    </div>
   </div>
 </div>
 
 <script>
   const connection = new solanaWeb3.Connection("https://api.devnet.solana.com");
-
-  // 🔥 YOUR TREASURY ADDRESS
   const TREASURY = new solanaWeb3.PublicKey("23BGxPV6Q4SXBd51xs5pvWAZ2k3MPGxyPJjHinKc3f5S");
-
   const WIN_PERCENTAGE = 0.45;
 
   let wallet = null;
-  let selectedBet = 0.1;
-
-  function selectBet(amount) {
-    selectedBet = amount;
-
-    document.querySelectorAll(".bet-buttons button").forEach(btn => {
-      btn.classList.remove("active");
-    });
-
-    document.getElementById("bet" + amount).classList.add("active");
-  }
+  let flipping = false;
 
   async function connectWallet() {
     if (!window.solana) {
@@ -134,25 +157,32 @@
 
     document.getElementById("walletDisplay").innerText =
       "Connected: " +
-      wallet.toString().slice(0, 6) +
+      wallet.toString().slice(0,6) +
       "..." +
       wallet.toString().slice(-4);
   }
 
   async function flipCoin() {
-    if (!wallet) {
-      alert("Connect wallet first");
+    if (!wallet || flipping) return;
+
+    const bet = parseFloat(document.getElementById("betAmount").value);
+
+    if (bet <= 0 || bet > 8) {
+      document.getElementById("warning").innerText =
+        "Bet must be between 0.01 and 8 SOL.";
       return;
     }
 
-    try {
-      document.getElementById("result").innerText = "Processing...";
+    document.getElementById("warning").innerText = "";
+    flipping = true;
+    document.getElementById("result").innerText = "Processing...";
 
+    try {
       const transaction = new solanaWeb3.Transaction().add(
         solanaWeb3.SystemProgram.transfer({
           fromPubkey: wallet,
           toPubkey: TREASURY,
-          lamports: selectedBet * solanaWeb3.LAMPORTS_PER_SOL,
+          lamports: bet * solanaWeb3.LAMPORTS_PER_SOL,
         })
       );
 
@@ -165,18 +195,28 @@
 
       const win = Math.random() < WIN_PERCENTAGE;
 
-      document.getElementById("result").innerText =
-        win
-          ? "🎉 YOU WON! (1.98x simulated payout)"
-          : "😢 You lost. Try again.";
+      const coin = document.getElementById("coin");
+      const spins = 5;
+      const finalRotation = win ? 180 : 0;
+      coin.style.transform =
+        `rotateY(${spins * 360 + finalRotation}deg)`;
+
+      setTimeout(() => {
+        document.getElementById("result").innerText =
+          win
+            ? `🎉 YOU WON! Payout: ${bet * 2} SOL (simulated)`
+            : `😢 You lost ${bet} SOL`;
+
+        flipping = false;
+      }, 1500);
 
     } catch (error) {
       console.error(error);
-      document.getElementById("result").innerText = "Transaction failed.";
+      document.getElementById("result").innerText =
+        "Transaction failed.";
+      flipping = false;
     }
   }
-
-  selectBet(0.1);
 </script>
 
 </body>
